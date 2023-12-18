@@ -26,3 +26,13 @@ type ActiveConnection struct {
 	Comment  string
 	Uptime   string
 }
+
+type RouteList struct {
+	ID             string
+	DstAddress     string
+	Comment        string
+	Rtype          string
+	PrefSrc        string
+	BgpCommunities string
+	Active         string
+}

@@ -16,8 +16,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to Mikrotik: %v", err)
 	}
-	dstAddrs := []string{"2.2.2.0/24", "2.2.3.0/24", "1.2.2.0/24"}
-	err = mikrotikClient.SetStaticRoute(dstAddrs, "no")
+	err = mikrotikClient.AddStaticRoute("1.2.2.0/24", "unreachable", "1.1.1.1", "18013:12,18013:13", "cloud")
 	if err != nil {
 		log.Fatalf("Set route to Mikrotik: %v", err)
 	}

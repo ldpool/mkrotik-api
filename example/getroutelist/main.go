@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	mikrotik "mikrotik/mkrotik-api"
 )
@@ -16,9 +17,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to Mikrotik: %v", err)
 	}
-	dstAddrs := []string{"2.2.2.0/24", "2.2.3.0/24", "1.2.2.0/24"}
-	err = mikrotikClient.SetStaticRoute(dstAddrs, "no")
-	if err != nil {
-		log.Fatalf("Set route to Mikrotik: %v", err)
-	}
+	prefSrc := []string{"1.1.1.1", "1.1.1.2"}
+	rlist := mikrotikClient.GetRouteList(prefSrc)
+	fmt.Println(rlist)
 }

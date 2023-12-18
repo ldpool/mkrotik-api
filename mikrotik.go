@@ -22,11 +22,15 @@ type Mikrotik interface {
 	GetAddressList(listName string) []AddressList
 	AddSecretToAddressList(addressList AddressList) AddressList
 	RemoveSecretFromAddressList(addressListData []AddressList, remoteAddress string) AddressList
-	SetStaticRoute(dstAddr, rType, prefSource, bgpComm string) error
+	AddStaticRoute(dstAddr, rType, prefSource, bgpComm, comment string) error //添加静态路由
+	SetStaticRoute(dstAddrs []string, active string) error                    //设置静态路由 开启/关闭
+	RemoveRoute(dstAddr []string) error                                       //删除静态路由
+	GetRouteList(prefSrcs []string) []RouteList                               //获取路由列表
+	GetRoutes(dstAddrs []string) []RouteList                                  //获取路由ID
 }
 
-func NewMikrotikRepository(addr, user, password string) (Mikrotik, error) {
-	dial, err := routeros.Dial(addr+":8728", user, password)
+func NewMikrotikRepository(addr, user, password, port string) (Mikrotik, error) {
+	dial, err := routeros.Dial(addr+":"+port, user, password)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +105,7 @@ func (mr *mikrotikRepository) SetMacFromAC() {
 	var secret []map[string]string
 
 	for _, s := range reply.Re {
-		fmt.Println(s.Map)
+		// fmt.Println(s.Map)
 		secret = append(secret, s.Map)
 	}
 
@@ -222,14 +226,101 @@ func (mr *mikrotikRepository) GetAddressList(listName string) []AddressList {
 	return results
 }
 
-// ip route add dst-address=1.1.1.0/24 type=blackhole pref-src=1.1.1.1 bgp-communities=18013:13
-func (mr *mikrotikRepository) SetStaticRoute(dstAddr, rType, prefSrc, bgpComm string) error {
+// /ip route add dst-address=1.1.1.0/24 type=unreachable pref-src=1.1.1.1 bgp-communities=18013:13 comment=cloud
+func (mr *mikrotikRepository) AddStaticRoute(dstAddr, rType, prefSrc, bgpComm, comment string) error {
 	_, err := mr.client.Run(
 		"/ip/route/add",
 		fmt.Sprintf("=dst-address=%s", dstAddr),
 		fmt.Sprintf("=type=%s", rType),
 		fmt.Sprintf("=pref-src=%s", prefSrc),
 		fmt.Sprintf("=bgp-communities=%s", bgpComm),
+		fmt.Sprintf("=comment=%s", comment),
 	)
 	return err
+}
+func (mr *mikrotikRepository) GetRouteList(prefSrcs []string) []RouteList {
+	var results []RouteList
+	reply, err := mr.client.Run(
+		"/ip/route/print",
+	)
+	// fmt.Println(reply)
+	if err != nil {
+		log.Println("Error al imprimir los route list", err)
+	}
+
+	for _, prefSrc := range prefSrcs {
+		for _, alist := range reply.Re {
+			if alist.Map["pref-src"] == prefSrc {
+				L := RouteList{
+					ID:             alist.Map[".id"],
+					DstAddress:     alist.Map["dst-address"],
+					Comment:        alist.Map["comment"],
+					Rtype:          alist.Map["type"],
+					PrefSrc:        alist.Map["pref-src"],
+					BgpCommunities: alist.Map["bgp-communities"],
+					Active:         alist.Map["active"],
+				}
+				results = append(results, L)
+			}
+		}
+	}
+	return results
+}
+
+func (mr *mikrotikRepository) SetStaticRoute(dstAddrs []string, active string) error {
+	rs := mr.GetRoutes(dstAddrs)
+	var err error
+	for _, r := range rs {
+		_, err = mr.client.Run(
+			"/ip/route/set",
+			fmt.Sprintf("=numbers=%s", r.ID),
+			fmt.Sprintf("=disabled=%s", active),
+		)
+
+	}
+	return err
+}
+
+func (mr *mikrotikRepository) RemoveRoute(dstAddrs []string) error {
+	rs := mr.GetRoutes(dstAddrs)
+	var err error
+	for _, r := range rs {
+		_, err = mr.client.Run(
+			"/ip/route/remove",
+			fmt.Sprintf("=numbers=%s", r.ID),
+		)
+
+	}
+	return err
+}
+
+func (mr *mikrotikRepository) GetRoutes(dstAddrs []string) []RouteList {
+	var results []RouteList
+	reply, err := mr.client.Run(
+		"/ip/route/print",
+	)
+
+	if err != nil {
+		log.Println("Error al imprimir los route list", err)
+	}
+	for _, dstAddr := range dstAddrs {
+		var L RouteList
+		for _, alist := range reply.Re {
+			if alist.Map["dst-address"] == dstAddr {
+				L = RouteList{
+					ID:             alist.Map[".id"],
+					DstAddress:     alist.Map["dst-address"],
+					Comment:        alist.Map["comment"],
+					Rtype:          alist.Map["type"],
+					PrefSrc:        alist.Map["pref-src"],
+					BgpCommunities: alist.Map["bgp-communities"],
+					Active:         alist.Map["active"],
+				}
+
+			}
+		}
+		results = append(results, L)
+	}
+
+	return results
 }
