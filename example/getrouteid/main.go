@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	address := "122.226.180.206"
+	address := "1.1.1.1"
 	username := "admin"
-	password := "mmdoudou"
-	port := "18728"
+	password := "admin"
+	port := "8728"
 
 	// Create a new Mikrotik instance
 	mikrotikClient, err := mikrotik.NewMikrotikRepository(address, username, password, port)
